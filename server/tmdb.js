@@ -1,3 +1,7 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
 /**
  * TMDB API client. Uses person movie_credits to get movies per actor,
  * person details for names, and search API for global movie lookup.
@@ -7,7 +11,26 @@
 const TMDB_BASE = 'https://api.themoviedb.org/3';
 
 // Movies that should never be used as answers or in typeahead.
-const BLOCKED_MOVIE_IDS = new Set([126314]); // Final Cut: Ladies and Gentlemen
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const BLOCKED_MOVIES_PATH = path.resolve(__dirname, '../data/blocked-movies.json');
+
+let BLOCKED_MOVIE_IDS = new Set([126314]);
+
+try {
+  const raw = fs.readFileSync(BLOCKED_MOVIES_PATH, 'utf8');
+  const parsed = JSON.parse(raw);
+  if (Array.isArray(parsed)) {
+    const ids = parsed
+      .map((id) => Number(id))
+      .filter((id) => Number.isInteger(id) && id > 0);
+    if (ids.length > 0) {
+      BLOCKED_MOVIE_IDS = new Set(ids);
+    }
+  }
+} catch {
+  // If the JSON file is missing or invalid, fall back to the default set.
+}
 
 const SEARCH_CACHE_TTL_MS = 10 * 60 * 1000;
 const MAX_SEARCH_CACHE_ENTRIES = 200;
