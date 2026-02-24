@@ -2,6 +2,41 @@ import { useState, useEffect, useCallback } from 'react';
 
 const API_BASE = '/api';
 
+const MIN_SEARCH_CHARS = 2;
+const CACHE_TTL_MS = 10 * 60 * 1000;
+const MAX_CACHE_ENTRIES = 50;
+
+// In-memory cache for movie search titles, keyed by normalized query.
+const searchCache = new Map();
+
+const normalizeSearchQuery = (value) =>
+  String(value || '')
+    .trim()
+    .toLowerCase();
+
+const getCachedPrefixResult = (normalized) => {
+  const now = Date.now();
+  for (let len = normalized.length; len >= MIN_SEARCH_CHARS; len -= 1) {
+    const prefix = normalized.slice(0, len);
+    const entry = searchCache.get(prefix);
+    if (entry && now - entry.timestamp <= CACHE_TTL_MS) {
+      return entry;
+    }
+  }
+  return null;
+};
+
+const setSearchCache = (normalized, titles) => {
+  const now = Date.now();
+  searchCache.set(normalized, { titles, timestamp: now });
+  if (searchCache.size > MAX_CACHE_ENTRIES) {
+    const oldestKey = searchCache.keys().next().value;
+    if (oldestKey !== undefined) {
+      searchCache.delete(oldestKey);
+    }
+  }
+};
+
 function App() {
   const [role1, setRole1] = useState(null);
   const [role2, setRole2] = useState(null);
@@ -79,12 +114,28 @@ function App() {
     }
 
     const trimmed = guess.trim();
-    // Require at least 2 characters before searching to avoid noisy,
+    // Require at least MIN_SEARCH_CHARS characters before searching to avoid noisy,
     // laggy lookups on mobile for very short input.
-    if (!trimmed || trimmed.length < 2) {
+    if (!trimmed || trimmed.length < MIN_SEARCH_CHARS) {
       setSuggestions([]);
       setShowSuggestions(false);
       setMovieOptions([]);
+      return;
+    }
+
+    const normalized = normalizeSearchQuery(guess);
+    const cached = getCachedPrefixResult(normalized);
+
+    if (cached && Array.isArray(cached.titles) && cached.titles.length > 0) {
+      const filteredTitles = cached.titles
+        .filter((t) => typeof t === 'string' && t.trim().length > 0)
+        .map((t) => t.trim())
+        .filter((t) => t.toLowerCase().includes(normalized));
+      const uniqueFiltered = Array.from(new Set(filteredTitles));
+      const matches = uniqueFiltered.slice(0, 6);
+      setMovieOptions(uniqueFiltered);
+      setSuggestions(matches);
+      setShowSuggestions(matches.length > 0);
       return;
     }
 
@@ -108,9 +159,13 @@ function App() {
               .filter((t) => typeof t === 'string' && t.trim().length > 0)
           : [];
         const uniqueTitles = Array.from(new Set(titles));
+        setSearchCache(normalized, uniqueTitles);
+        const filteredTitles = uniqueTitles.filter((t) =>
+          t.toLowerCase().includes(normalized),
+        );
         // Fewer suggestions keeps the list lighter on small screens.
-        const matches = uniqueTitles.slice(0, 6);
-        setMovieOptions(uniqueTitles);
+        const matches = filteredTitles.slice(0, 6);
+        setMovieOptions(filteredTitles);
         setSuggestions(matches);
         setShowSuggestions(matches.length > 0);
       } catch {
