@@ -181,6 +181,52 @@ function App() {
     };
   }, [guess, suppressSuggestions, result]);
 
+  const submitGuess = useCallback(
+    async (rawTitle) => {
+      if (!role1 || !role2) return;
+
+      const title = String(rawTitle || '').trim();
+      if (!title) return;
+
+      setSubmitting(true);
+      setError(null);
+      setDuplicateMessage('');
+      try {
+        const res = await fetch(`${API_BASE}/check`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ role1, role2, guess: title }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || data.details || `HTTP ${res.status}`);
+        if (data.duplicate) {
+          setResult(null);
+          setDuplicateMessage('No movie duplicates can be used. Try a different movie.');
+          if (typeof data.streak === 'number') {
+            setStreak(data.streak);
+          }
+          if (typeof data.bestStreak === 'number') {
+            setBestStreak(data.bestStreak);
+          }
+          setGuess('');
+        } else {
+          setResult(data);
+          if (typeof data.streak === 'number') {
+            setStreak(data.streak);
+          }
+          if (typeof data.bestStreak === 'number') {
+            setBestStreak(data.bestStreak);
+          }
+        }
+      } catch (err) {
+        setError(err.message);
+      } finally {
+        setSubmitting(false);
+      }
+    },
+    [role1, role2],
+  );
+
   const handleSubmitOrNewQuestion = async (e) => {
     e.preventDefault();
     // Always hide and suppress suggestions on submit so the typeahead
@@ -194,42 +240,14 @@ function App() {
       fetchQuestion();
       return;
     }
-    if (!role1 || !role2) return;
-    setSubmitting(true);
-    setError(null);
-    setDuplicateMessage('');
-    try {
-      const res = await fetch(`${API_BASE}/check`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ role1, role2, guess }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || data.details || `HTTP ${res.status}`);
-      if (data.duplicate) {
-        setResult(null);
-        setDuplicateMessage('No movie duplicates can be used. Try a different movie.');
-        if (typeof data.streak === 'number') {
-          setStreak(data.streak);
-        }
-        if (typeof data.bestStreak === 'number') {
-          setBestStreak(data.bestStreak);
-        }
-        setGuess('');
-      } else {
-        setResult(data);
-        if (typeof data.streak === 'number') {
-          setStreak(data.streak);
-        }
-        if (typeof data.bestStreak === 'number') {
-          setBestStreak(data.bestStreak);
-        }
-      }
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setSubmitting(false);
+
+    const trimmed = guess.trim();
+    if (!trimmed) {
+      setError('Please enter a movie title.');
+      return;
     }
+
+    await submitGuess(trimmed);
   };
 
   if (loading) {
@@ -290,34 +308,41 @@ function App() {
       {duplicateMessage && <p className="error">{duplicateMessage}</p>}
 
       <form className="form" onSubmit={handleSubmitOrNewQuestion}>
-        <input
-          type="text"
-          className="input"
-          placeholder="Movie title"
-          value={guess}
-          onChange={handleGuessChange}
-          disabled={submitting || !!result}
-          autoFocus
-        />
-        {showSuggestions && suggestions.length > 0 && !result && (
-          <ul className="typeahead-list">
+        <div className="typeahead-wrapper">
+          <input
+            type="text"
+            className="input"
+            placeholder="Movie title"
+            value={guess}
+            onChange={handleGuessChange}
+            disabled={submitting || !!result}
+            autoCorrect="off"
+            autoCapitalize="off"
+            spellCheck={false}
+            autoFocus
+          />
+          {showSuggestions && suggestions.length > 0 && !result && (
+            <ul className="typeahead-list">
             {suggestions.map((title) => (
               <li
                 key={title}
                 className="typeahead-item"
                 onMouseDown={(e) => {
                   e.preventDefault();
-                  setGuess(title);
+                  const selectedTitle = title;
+                  setGuess(selectedTitle);
                   setShowSuggestions(false);
                   setSuggestions([]);
                   setSuppressSuggestions(true);
+                  submitGuess(selectedTitle);
                 }}
               >
                 {title}
               </li>
             ))}
-          </ul>
-        )}
+            </ul>
+          )}
+        </div>
         <button type="submit" className="btn btn-primary" disabled={submitting}>
           {result ? 'New question' : submitting ? 'Checking…' : 'Submit'}
         </button>
