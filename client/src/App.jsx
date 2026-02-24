@@ -79,7 +79,9 @@ function App() {
     }
 
     const trimmed = guess.trim();
-    if (!trimmed) {
+    // Require at least 2 characters before searching to avoid noisy,
+    // laggy lookups on mobile for very short input.
+    if (!trimmed || trimmed.length < 2) {
       setSuggestions([]);
       setShowSuggestions(false);
       setMovieOptions([]);
@@ -87,6 +89,7 @@ function App() {
     }
 
     const controller = new AbortController();
+    // Shorter debounce for snappier feel on mobile.
     const timeoutId = setTimeout(async () => {
       try {
         const res = await fetch(`${API_BASE}/search-movies?q=${encodeURIComponent(trimmed)}`, {
@@ -105,7 +108,8 @@ function App() {
               .filter((t) => typeof t === 'string' && t.trim().length > 0)
           : [];
         const uniqueTitles = Array.from(new Set(titles));
-        const matches = uniqueTitles.slice(0, 8);
+        // Fewer suggestions keeps the list lighter on small screens.
+        const matches = uniqueTitles.slice(0, 6);
         setMovieOptions(uniqueTitles);
         setSuggestions(matches);
         setShowSuggestions(matches.length > 0);
