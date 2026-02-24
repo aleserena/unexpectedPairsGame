@@ -1,0 +1,256 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+  min-height: 100vh;
+  color: #e8e8e8;
+}
+
+#root {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.app {
+  max-width: 480px;
+  width: 100%;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 16px;
+  padding: 2rem;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+h1 {
+  margin: 0 0 0.5rem;
+  font-size: 1.5rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.subtitle {
+  margin: 0 0 1.5rem;
+  font-size: 0.9rem;
+  color: #a0a0a0;
+  text-align: center;
+}
+
+.prompt {
+  font-size: 1.15rem;
+  margin-bottom: 1rem;
+  padding: 1rem;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 10px;
+  text-align: center;
+}
+
+.prompt strong {
+  color: #7eb8da;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.typeahead-list {
+  margin: 0;
+  padding: 0.25rem 0;
+  list-style: none;
+  background: rgba(0, 0, 0, 0.85);
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.typeahead-item {
+  padding: 0.35rem 0.75rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.typeahead-item:hover {
+  background: rgba(126, 184, 218, 0.2);
+}
+
+.input {
+  padding: 0.75rem 1rem;
+  font-size: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.2);
+  color: #fff;
+}
+
+.input::placeholder {
+  color: #888;
+}
+
+.input:focus {
+  outline: none;
+  border-color: #7eb8da;
+  box-shadow: 0 0 0 2px rgba(126, 184, 218, 0.3);
+}
+
+.btn {
+  padding: 0.75rem 1.25rem;
+  font-size: 1rem;
+  font-weight: 600;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.05s;
+}
+
+.btn:active {
+  transform: scale(0.98);
+}
+
+.btn-primary {
+  background: #7eb8da;
+  color: #1a1a2e;
+}
+
+.btn-primary:hover {
+  background: #6aa8ca;
+}
+
+.btn-secondary {
+  background: rgba(255, 255, 255, 0.15);
+  color: #e8e8e8;
+}
+
+.btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.result {
+  margin-top: 1rem;
+  padding: 1rem;
+  border-radius: 10px;
+  font-size: 0.95rem;
+}
+
+.result.correct {
+  background: rgba(76, 175, 80, 0.2);
+  border: 1px solid rgba(76, 175, 80, 0.5);
+}
+
+.result.incorrect {
+  background: rgba(244, 67, 54, 0.15);
+  border: 1px solid rgba(244, 67, 54, 0.4);
+}
+
+.result-title {
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.result-poster {
+  margin-top: 0.75rem;
+  display: flex;
+  justify-content: center;
+}
+
+.result-poster img {
+  max-width: 100%;
+  border-radius: 8px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+}
+
+.result-example {
+  margin-top: 0.5rem;
+  font-size: 0.9rem;
+  color: #b0b0b0;
+}
+
+.valid-movies {
+  margin: 0.75rem 0 0;
+  padding-left: 1.5rem;
+  line-height: 1.6;
+  color: #b0b0b0;
+  list-style-type: disc;
+}
+
+.valid-movies-empty {
+  margin: 0.5rem 0 0;
+  color: #888;
+  font-size: 0.9rem;
+}
+
+.error {
+  background: rgba(244, 67, 54, 0.15);
+  border: 1px solid rgba(244, 67, 54, 0.4);
+  color: #f8b4b0;
+  padding: 0.75rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+}
+
+.loading {
+  color: #a0a0a0;
+  text-align: center;
+  padding: 1rem;
+}
+
+.streaks {
+  position: fixed;
+  top: 1.25rem;
+  right: 1.25rem;
+  z-index: 1000;
+  padding: 0.6rem 0.9rem;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.6);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.9rem;
+}
+
+.streaks-label {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+  font-size: 0.75rem;
+  color: #b0b0b0;
+}
+
+.streaks-values {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+}
+
+.streaks-current {
+  font-weight: 700;
+  font-size: 1.05rem;
+}
+
+.streaks-best {
+  font-size: 0.8rem;
+  color: #d0d0d0;
+}
+
+@media (max-width: 600px) {
+  .streaks {
+    top: 0.75rem;
+    right: 0.75rem;
+    padding: 0.45rem 0.7rem;
+    font-size: 0.8rem;
+  }
+
+  .streaks-current {
+    font-size: 0.95rem;
+  }
+}

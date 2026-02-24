@@ -1,0 +1,13 @@
+{
+  "name": "unexpected-pairs-game",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "postinstall": "npm --prefix client install && npm --prefix client run build && npm --prefix server install",
+    "start": "node server/index.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
+
