@@ -2,7 +2,7 @@
  * API routes: game endpoints and movie lookup.
  */
 
-import { getRoleNames, getValidMoviesForRoles } from './gameLogic.js';
+import { getRoleNames, getValidMoviesForRoles, getRoleActorsForMovie } from './gameLogic.js';
 import { searchMovies } from './tmdb.js';
 import * as cache from './cache.js';
 
@@ -59,84 +59,84 @@ export function registerRoutes(app) {
     }
 
     const session = ensureSessionShape(req.gameSession);
-
-    // If there is no active streak, fall back to simple random selection.
-    if (!session || !session.usedMovieIds || session.usedMovieIds.size === 0) {
-      let i = Math.floor(Math.random() * roles.length);
-      let j = Math.floor(Math.random() * roles.length);
-      while (j === i) j = Math.floor(Math.random() * roles.length);
-      const role1 = roles[i];
-      const role2 = roles[j];
-      return res.json({
-        role1,
-        role2,
-        streak: session ? session.streak : 0,
-        bestStreak: session ? session.bestStreak : 0,
-      });
-    }
-
     const MAX_ATTEMPTS = 20;
-    const usedIds = session.usedMovieIds;
-    let chosen = null;
+    const usedIds = session ? session.usedMovieIds : new Set();
 
-    for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
-      let i = Math.floor(Math.random() * roles.length);
-      let j = Math.floor(Math.random() * roles.length);
-      while (j === i) j = Math.floor(Math.random() * roles.length);
-      const role1 = roles[i];
-      const role2 = roles[j];
+    async function pickPair(requireFreshMovie) {
+      for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+        let i = Math.floor(Math.random() * roles.length);
+        let j = Math.floor(Math.random() * roles.length);
+        while (j === i) j = Math.floor(Math.random() * roles.length);
+        const role1 = roles[i];
+        const role2 = roles[j];
 
-      let validMovies = cache.get(role1, role2);
-      if (!validMovies) {
-        try {
-          validMovies = await getValidMoviesForRoles(role1, role2);
-          cache.set(role1, role2, validMovies);
-        } catch (err) {
-          console.error('getValidMoviesForRoles failed in /api/question:', err);
+        let validMovies = cache.get(role1, role2);
+        if (!validMovies) {
+          try {
+            validMovies = await getValidMoviesForRoles(role1, role2);
+            cache.set(role1, role2, validMovies);
+          } catch (err) {
+            console.error('getValidMoviesForRoles failed in /api/question:', {
+              role1,
+              role2,
+              message: err?.message,
+              stack: err?.stack,
+            });
+            continue;
+          }
+        }
+
+        if (!Array.isArray(validMovies) || validMovies.length === 0) {
           continue;
+        }
+
+        if (!requireFreshMovie) {
+          return { role1, role2 };
+        }
+
+        const hasFreshMovie = validMovies.some((m) => !usedIds.has(m.id));
+        if (hasFreshMovie) {
+          return { role1, role2 };
         }
       }
 
-      if (!Array.isArray(validMovies) || validMovies.length === 0) {
-        continue;
-      }
-
-      const hasFreshMovie = validMovies.some((m) => !usedIds.has(m.id));
-      if (hasFreshMovie) {
-        chosen = { role1, role2 };
-        break;
-      }
+      return null;
     }
 
-    // If we couldn't find any pair with at least one fresh movie, consider the streak finished
-    // and fall back to a random pair while resetting the streak.
+    let chosen = null;
+
+    // First, if we have an active streak, prefer a pair with at least one fresh movie.
+    if (session && usedIds && usedIds.size > 0) {
+      chosen = await pickPair(true);
+    }
+
     if (!chosen) {
-      const finishedStreak = session.streak;
-      if (finishedStreak > 0) {
-        recordFinishedStreak(req.sessionId, finishedStreak, 'exhausted-combos');
+      // No pair with fresh movies found (or no active streak). Reset streak and try again
+      // for any pair that at least has valid answers.
+      if (session) {
+        const finishedStreak = session.streak;
+        if (finishedStreak > 0 && usedIds.size > 0) {
+          recordFinishedStreak(req.sessionId, finishedStreak, 'exhausted-combos');
+        }
+        session.streak = 0;
+        session.usedMovieIds.clear();
       }
-      session.streak = 0;
-      session.usedMovieIds.clear();
 
-      let i = Math.floor(Math.random() * roles.length);
-      let j = Math.floor(Math.random() * roles.length);
-      while (j === i) j = Math.floor(Math.random() * roles.length);
-      const role1 = roles[i];
-      const role2 = roles[j];
+      chosen = await pickPair(false);
+    }
 
-      return res.json({
-        role1,
-        role2,
-        streak: session.streak,
-        bestStreak: session.bestStreak,
+    if (!chosen) {
+      console.error('No valid role pairs available after attempts', {
+        rolesCount: roles.length,
       });
+      return res.status(503).json({ error: 'No valid role pairs available' });
     }
 
     return res.json({
       role1: chosen.role1,
       role2: chosen.role2,
-      streak: session.streak,
-      bestStreak: session.bestStreak,
+      streak: session ? session.streak : 0,
+      bestStreak: session ? session.bestStreak : 0,
     });
   });
 
@@ -145,14 +145,28 @@ export function registerRoutes(app) {
     if (!role1 || !role2) {
       return res.status(400).json({ error: 'role1 and role2 are required' });
     }
+
+    console.log('[check] Incoming guess', {
+      role1,
+      role2,
+      guess: String(guess || '').slice(0, 120),
+    });
+
     let validMovies = cache.get(role1, role2);
     if (!validMovies) {
       try {
         validMovies = await getValidMoviesForRoles(role1, role2);
         cache.set(role1, role2, validMovies);
       } catch (err) {
-        console.error('getValidMoviesForRoles failed:', err);
-        return res.status(502).json({ error: 'Failed to resolve movies', details: err.message });
+        console.error('getValidMoviesForRoles failed in /api/check:', {
+          role1,
+          role2,
+          message: err?.message,
+          stack: err?.stack,
+        });
+        return res
+          .status(502)
+          .json({ error: 'Failed to resolve movies', details: err.message, role1, role2 });
       }
     }
 
@@ -216,6 +230,22 @@ export function registerRoutes(app) {
         ? validMovies[0]
         : null;
 
+    let actorsByRole = null;
+    const targetMovie = matchedMovie || example;
+    if (targetMovie) {
+      try {
+        actorsByRole = await getRoleActorsForMovie(role1, role2, targetMovie.id);
+      } catch (err) {
+        console.error('getRoleActorsForMovie failed:', {
+          role1,
+          role2,
+          movieId: targetMovie.id,
+          message: err?.message,
+          stack: err?.stack,
+        });
+      }
+    }
+
     res.json({
       correct,
       validMovies: titles,
@@ -238,6 +268,7 @@ export function registerRoutes(app) {
             posterUrl: buildPosterUrl(example),
           }
         : null,
+      actorsByRole,
     });
   });
 

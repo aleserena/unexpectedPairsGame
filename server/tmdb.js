@@ -1,9 +1,13 @@
 /**
  * TMDB API client. Uses person movie_credits to get movies per actor,
- * and search API for global movie lookup. Requires TMDB_API_KEY in environment.
+ * person details for names, and search API for global movie lookup.
+ * Requires TMDB_API_KEY in environment.
  */
 
 const TMDB_BASE = 'https://api.themoviedb.org/3';
+
+// Simple in-memory cache for person details to avoid repeated lookups.
+const personDetailsCache = new Map();
 
 export async function getPersonMovieCredits(personId) {
   const apiKey = process.env.TMDB_API_KEY;
@@ -40,6 +44,34 @@ export async function getMovieIdsForPerson(personId) {
     }
   }
   return { movieIds, movieInfo };
+}
+
+/**
+ * Fetch basic person details (currently just name), with a small in-memory cache.
+ */
+export async function getPersonDetails(personId) {
+  const id = Number(personId);
+  if (Number.isNaN(id)) {
+    throw new Error(`Invalid personId: ${personId}`);
+  }
+  if (personDetailsCache.has(id)) {
+    return personDetailsCache.get(id);
+  }
+  const apiKey = process.env.TMDB_API_KEY;
+  if (!apiKey) throw new Error('TMDB_API_KEY is not set');
+  const url = `${TMDB_BASE}/person/${id}?api_key=${apiKey}&language=en-US`;
+  const res = await fetch(url);
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`TMDB API error ${res.status}: ${text}`);
+  }
+  const data = await res.json();
+  const basic = {
+    id: data.id,
+    name: data.name || `Person ${id}`,
+  };
+  personDetailsCache.set(id, basic);
+  return basic;
 }
 
 /**

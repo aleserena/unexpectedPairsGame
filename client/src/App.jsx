@@ -277,6 +277,27 @@ function App() {
               />
             </div>
           )}
+          {posterMovie && result?.actorsByRole && (
+            <div className="result-actors">
+              <p>In this movie:</p>
+              <ul>
+                {Array.isArray(result.actorsByRole.role1Actors) &&
+                  result.actorsByRole.role1Actors.map((actor) => (
+                    <li key={`r1-${actor.personId}`}>
+                      {actor.name}
+                      {actor.character || actor.role ? ` as ${actor.character || actor.role}` : ''}
+                    </li>
+                  ))}
+                {Array.isArray(result.actorsByRole.role2Actors) &&
+                  result.actorsByRole.role2Actors.map((actor) => (
+                    <li key={`r2-${actor.personId}`}>
+                      {actor.name}
+                      {actor.character || actor.role ? ` as ${actor.character || actor.role}` : ''}
+                    </li>
+                  ))}
+              </ul>
+            </div>
+          )}
         </div>
       )}
     </div>
